@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Money Model Builder</title>
+    <meta
+      name="description"
+      content="A standalone offer economics simulator for modeling CAC, attraction offers, upsells, downsells, and continuity revenue."
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #18212b;
+        --muted: #627080;
+        --line: #d8dee5;
+        --panel: #ffffff;
+        --page: #f4f7f7;
+        --teal: #087f8c;
+        --green: #197a4f;
+        --amber: #a35f00;
+        --red: #b42318;
+        --blue: #2f62b3;
+        --shadow: 0 18px 45px rgba(28, 41, 54, 0.11);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background:
+          linear-gradient(120deg, rgba(8, 127, 140, 0.08), transparent 28%),
+          linear-gradient(280deg, rgba(163, 95, 0, 0.08), transparent 32%),
+          var(--page);
+      }
+
+      button, input { font: inherit; }
+
+      .app {
+        width: min(1440px, 100%);
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        min-height: 96px;
+        padding: 12px 0 24px;
+      }
+
+      .eyebrow {
+        margin: 0 0 4px;
+        color: var(--teal);
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 4.4rem);
+        line-height: 0.96;
+        letter-spacing: 0;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .button {
+        min-height: 42px;
+        padding: 0 16px;
+        border: 1px solid var(--teal);
+        border-radius: 8px;
+        color: #ffffff;
+        background: var(--teal);
+        cursor: pointer;
+      }
+
+      .button.secondary {
+        color: var(--teal);
+        background: transparent;
+      }
+
+      .button:focus-visible, input:focus-visible {
+        outline: 3px solid rgba(47, 98, 179, 0.3);
+        outline-offset: 2px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .controls { display: grid; gap: 12px; }
+
+      .panel, .scoreboard, .stage-flow, .table-wrap, .note {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: var(--shadow);
+      }
+
+      .panel {
+        margin: 0;
+        padding: 14px;
+      }
+
+      legend {
+        padding: 0 8px;
+        color: var(--ink);
+        font-size: 0.86rem;
+        font-weight: 850;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+        padding: 10px 0;
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-weight: 700;
+      }
+
+      .input-row {
+        display: grid;
+        grid-template-columns: minmax(120px, 1fr) minmax(82px, 96px);
+        gap: 10px;
+        align-items: center;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--teal);
+      }
+
+      output {
+        min-height: 34px;
+        display: inline-grid;
+        place-items: center end;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--ink);
+        background: #f8fafb;
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+      }
+
+      .results { display: grid; gap: 18px; }
+
+      .scoreboard {
+        display: grid;
+        grid-template-columns: 1.35fr repeat(3, minmax(140px, 1fr));
+        min-height: 154px;
+        overflow: hidden;
+      }
+
+      .status, .metric {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 8px;
+        padding: 20px;
+        border-right: 1px solid var(--line);
+      }
+
+      .metric:last-child { border-right: 0; }
+
+      .status {
+        color: #ffffff;
+        background: var(--blue);
+      }
+
+      .status.positive { background: var(--green); }
+      .status.warning { background: var(--amber); }
+      .status.negative { background: var(--red); }
+      .status.neutral { background: var(--blue); }
+
+      .status span, .metric span {
+        font-size: 0.78rem;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      .status strong, .metric strong {
+        font-size: clamp(1.55rem, 2.6vw, 2.4rem);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .status small {
+        max-width: 34rem;
+        line-height: 1.4;
+      }
+
+      .stage-flow {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1px;
+        overflow: hidden;
+        background: var(--line);
+      }
+
+      .stage {
+        display: grid;
+        align-content: space-between;
+        min-height: 180px;
+        padding: 18px;
+        background: var(--panel);
+      }
+
+      .stage div:first-child { display: grid; gap: 10px; }
+
+      .stage span {
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      .stage strong {
+        font-size: clamp(1.3rem, 2.1vw, 2rem);
+        letter-spacing: 0;
+      }
+
+      .bar {
+        width: 100%;
+        height: 10px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #edf1f3;
+      }
+
+      .bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--teal), var(--amber));
+      }
+
+      .table-wrap { overflow-x: auto; }
+
+      table {
+        width: 100%;
+        min-width: 540px;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        font-variant-numeric: tabular-nums;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+      }
+
+      td { font-weight: 760; }
+      tr:last-child td { border-bottom: 0; }
+
+      .note {
+        padding: 16px 18px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .note strong { color: var(--ink); }
+
+      @media (max-width: 980px) {
+        .layout, .scoreboard, .stage-flow { grid-template-columns: 1fr; }
+        .scoreboard { min-height: auto; }
+        .status, .metric {
+          min-height: 118px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .metric:last-child { border-bottom: 0; }
+        .stage { min-height: 132px; }
+      }
+
+      @media (max-width: 620px) {
+        .app { padding: 16px; }
+        .topbar { align-items: stretch; flex-direction: column; }
+        .actions { justify-content: stretch; }
+        .button { flex: 1; }
+        .input-row { grid-template-columns: 1fr; }
+        output { place-items: center start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app"></div>
+
+    <script>
+      const defaultScenario = {
+        monthlyLeads: 1200,
+        leadToCustomerRate: 0.18,
+        customerAcquisitionCost: 85,
+        frontEndPrice: 149,
+        frontEndCost: 42,
+        attractionIncentiveCost: 18,
+        upsellPrice: 399,
+        upsellCost: 95,
+        upsellTakeRate: 0.32,
+        downsellPrice: 129,
+        downsellCost: 35,
+        downsellTakeRate: 0.24,
+        continuityMonthlyPrice: 79,
+        continuityMonthlyCost: 19,
+        continuityTakeRate: 0.46,
+        averageRetentionMonths: 7
+      };
+
+      const percentFields = new Set([
+        "leadToCustomerRate",
+        "upsellTakeRate",
+        "downsellTakeRate",
+        "continuityTakeRate"
+      ]);
+
+      const fields = [
+        ["monthlyLeads", "Monthly leads", "number", 0, 10000, 50],
+        ["leadToCustomerRate", "Lead to buyer", "percent", 0, 100, 1],
+        ["customerAcquisitionCost", "CAC", "money", 0, 1000, 5],
+        ["frontEndPrice", "Front-end price", "money", 0, 2000, 10],
+        ["frontEndCost", "Front-end cost", "money", 0, 1000, 5],
+        ["attractionIncentiveCost", "Incentive cost", "money", 0, 500, 5],
+        ["upsellPrice", "Upsell price", "money", 0, 5000, 25],
+        ["upsellCost", "Upsell cost", "money", 0, 3000, 25],
+        ["upsellTakeRate", "Upsell take", "percent", 0, 100, 1],
+        ["downsellPrice", "Downsell price", "money", 0, 2000, 10],
+        ["downsellCost", "Downsell cost", "money", 0, 1000, 5],
+        ["downsellTakeRate", "Downsell take", "percent", 0, 100, 1],
+        ["continuityMonthlyPrice", "Monthly recurring price", "money", 0, 1000, 5],
+        ["continuityMonthlyCost", "Monthly recurring cost", "money", 0, 500, 5],
+        ["continuityTakeRate", "Continuity take", "percent", 0, 100, 1],
+        ["averageRetentionMonths", "Retention months", "number", 0, 60, 1]
+      ];
+
+      const groups = [
+        { title: "Acquisition", keys: ["monthlyLeads", "leadToCustomerRate", "customerAcquisitionCost"] },
+        { title: "Attraction", keys: ["frontEndPrice", "frontEndCost", "attractionIncentiveCost"] },
+        { title: "Upsell", keys: ["upsellPrice", "upsellCost", "upsellTakeRate"] },
+        { title: "Downsell", keys: ["downsellPrice", "downsellCost", "downsellTakeRate"] },
+        { title: "Continuity", keys: ["continuityMonthlyPrice", "continuityMonthlyCost", "continuityTakeRate", "averageRetentionMonths"] }
+      ];
+
+      const app = document.querySelector("#app");
+      const state = loadScenario();
+
+      function clampScenario(input) {
+        const scenario = { ...defaultScenario, ...input };
+        for (const [key, value] of Object.entries(scenario)) {
+          const numeric = Number(value);
+          scenario[key] = Number.isFinite(numeric) ? numeric : defaultScenario[key];
+          if (percentFields.has(key)) {
+            scenario[key] = Math.min(1, Math.max(0, scenario[key]));
+          } else {
+            scenario[key] = Math.max(0, scenario[key]);
+          }
+        }
+        return scenario;
+      }
+
+      function calculateModel(input = {}) {
+        const scenario = clampScenario(input);
+        const customers = scenario.monthlyLeads * scenario.leadToCustomerRate;
+        const adSpend = customers * scenario.customerAcquisitionCost;
+        const frontEndMargin = scenario.frontEndPrice - scenario.frontEndCost - scenario.attractionIncentiveCost;
+        const upsellMargin = scenario.upsellPrice - scenario.upsellCost;
+        const downsellMargin = scenario.downsellPrice - scenario.downsellCost;
+        const continuityMonthlyMargin = scenario.continuityMonthlyPrice - scenario.continuityMonthlyCost;
+        const expectedUpsellProfit = scenario.upsellTakeRate * upsellMargin;
+        const expectedDownsellProfit = (1 - scenario.upsellTakeRate) * scenario.downsellTakeRate * downsellMargin;
+        const expectedContinuityProfit = scenario.continuityTakeRate * continuityMonthlyMargin * scenario.averageRetentionMonths;
+        const expectedFirstMonthContinuityProfit = scenario.continuityTakeRate * continuityMonthlyMargin;
+        const profitBeforeAds = frontEndMargin + expectedUpsellProfit + expectedDownsellProfit + expectedContinuityProfit;
+        const first30ProfitBeforeAds = frontEndMargin + expectedUpsellProfit + expectedDownsellProfit + expectedFirstMonthContinuityProfit;
+        const first30NetProfitPerCustomer = first30ProfitBeforeAds - scenario.customerAcquisitionCost;
+        const lifetimeNetProfitPerCustomer = profitBeforeAds - scenario.customerAcquisitionCost;
+        const monthlyGrossProfit = customers * profitBeforeAds;
+        const monthlyNetProfit = customers * lifetimeNetProfitPerCustomer;
+        const paybackMultiple = scenario.customerAcquisitionCost === 0 ? Infinity : first30ProfitBeforeAds / scenario.customerAcquisitionCost;
+
+        return {
+          scenario,
+          customers,
+          adSpend,
+          stages: [
+            { name: "Attraction", profit: frontEndMargin },
+            { name: "Upsell", profit: expectedUpsellProfit },
+            { name: "Downsell", profit: expectedDownsellProfit },
+            { name: "Continuity", profit: expectedContinuityProfit }
+          ],
+          profitBeforeAds,
+          first30ProfitBeforeAds,
+          first30NetProfitPerCustomer,
+          lifetimeNetProfitPerCustomer,
+          monthlyGrossProfit,
+          monthlyNetProfit,
+          paybackMultiple,
+          status: getStatus(first30NetProfitPerCustomer, lifetimeNetProfitPerCustomer, paybackMultiple, continuityMonthlyMargin)
+        };
+      }
+
+      function getStatus(first30NetProfitPerCustomer, lifetimeNetProfitPerCustomer, paybackMultiple, continuityMonthlyMargin) {
+        if (continuityMonthlyMargin < 0) {
+          return { label: "Continuity drag", tone: "warning", detail: "Recurring value loses money before acquisition cost." };
+        }
+        if (first30NetProfitPerCustomer >= 0 && paybackMultiple >= 1) {
+          return { label: "Self-funding", tone: "positive", detail: "First-30-day contribution profit covers acquisition cost." };
+        }
+        if (lifetimeNetProfitPerCustomer > 0) {
+          return { label: "Delayed payback", tone: "neutral", detail: "The model is profitable on lifetime value but needs working capital." };
+        }
+        return { label: "Needs work", tone: "negative", detail: "Expected value does not cover acquisition cost." };
+      }
+
+      function formatCurrency(value) {
+        if (!Number.isFinite(value)) return "n/a";
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0
+        }).format(value);
+      }
+
+      function formatNumber(value) {
+        if (!Number.isFinite(value)) return "n/a";
+        return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value);
+      }
+
+      function renderShell() {
+        app.innerHTML = `
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Offer economics simulator</p>
+              <h1>Money Model Builder</h1>
+            </div>
+            <div class="actions">
+              <button type="button" class="button secondary" data-action="reset">Reset</button>
+              <button type="button" class="button" data-action="sample">Sample</button>
+            </div>
+          </header>
+
+          <main class="layout">
+            <section class="controls" aria-label="Model assumptions">
+              ${groups.map(renderGroup).join("")}
+            </section>
+
+            <section class="results" aria-live="polite">
+              <div class="scoreboard">
+                <div class="status" id="status"></div>
+                <div class="metric"><span>First 30 net</span><strong id="first30Net"></strong></div>
+                <div class="metric"><span>Gross LTV</span><strong id="grossLtv"></strong></div>
+                <div class="metric"><span>Monthly net</span><strong id="monthlyNet"></strong></div>
+              </div>
+
+              <div class="stage-flow" id="stageFlow"></div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Stage</th><th>Expected profit per buyer</th><th>Mix</th></tr>
+                  </thead>
+                  <tbody id="stageRows"></tbody>
+                </table>
+              </div>
+
+              <p class="note"><strong>Note:</strong> This standalone tool uses original wording and generalized offer economics. It is for planning and education only, not legal, tax, financial, or earnings advice.</p>
+            </section>
+          </main>
+        `;
+
+        for (const [key] of fields) {
+          const input = document.querySelector(`[data-field="${key}"]`);
+          input.addEventListener("input", () => {
+            state[key] = readInputValue(input);
+            saveScenario(state);
+            renderResults();
+          });
+        }
+
+        document.querySelector('[data-action="reset"]').addEventListener("click", () => {
+          Object.assign(state, defaultScenario);
+          saveScenario(state);
+          syncInputs();
+          renderResults();
+        });
+
+        document.querySelector('[data-action="sample"]').addEventListener("click", () => {
+          Object.assign(state, {
+            monthlyLeads: 2400,
+            leadToCustomerRate: 0.14,
+            customerAcquisitionCost: 62,
+            frontEndPrice: 99,
+            frontEndCost: 24,
+            attractionIncentiveCost: 12,
+            upsellPrice: 499,
+            upsellCost: 110,
+            upsellTakeRate: 0.28,
+            downsellPrice: 179,
+            downsellCost: 48,
+            downsellTakeRate: 0.31,
+            continuityMonthlyPrice: 59,
+            continuityMonthlyCost: 14,
+            continuityTakeRate: 0.52,
+            averageRetentionMonths: 9
+          });
+          saveScenario(state);
+          syncInputs();
+          renderResults();
+        });
+
+        syncInputs();
+        renderResults();
+      }
+
+      function renderGroup(group) {
+        return `<fieldset class="panel"><legend>${group.title}</legend>${group.keys.map(renderField).join("")}</fieldset>`;
+      }
+
+      function renderField(key) {
+        const [, label, kind, min, max, step] = fields.find(([name]) => name === key);
+        const displayMax = kind === "percent" ? 100 : max;
+        const displayValue = kind === "percent" ? defaultScenario[key] * 100 : defaultScenario[key];
+        return `
+          <label class="field">
+            <span>${label}</span>
+            <div class="input-row">
+              <input type="range" min="${min}" max="${displayMax}" step="${step}" value="${displayValue}" data-field="${key}" />
+              <output data-output="${key}"></output>
+            </div>
+          </label>
+        `;
+      }
+
+      function syncInputs() {
+        for (const [key, , kind] of fields) {
+          const input = document.querySelector(`[data-field="${key}"]`);
+          input.value = kind === "percent" ? state[key] * 100 : state[key];
+          updateOutput(key, state[key]);
+        }
+      }
+
+      function renderResults() {
+        const result = calculateModel(state);
+        const positiveTotal = result.stages.map((stage) => Math.max(stage.profit, 0)).reduce((sum, value) => sum + value, 0);
+        document.querySelector("#status").className = `status ${result.status.tone}`;
+        document.querySelector("#status").innerHTML = `<span>${result.status.label}</span><strong>${formatNumber(result.paybackMultiple)}x CAC payback</strong><small>${result.status.detail}</small>`;
+        document.querySelector("#first30Net").textContent = formatCurrency(result.first30NetProfitPerCustomer);
+        document.querySelector("#grossLtv").textContent = formatCurrency(result.profitBeforeAds);
+        document.querySelector("#monthlyNet").textContent = formatCurrency(result.monthlyNetProfit);
+        document.querySelector("#stageFlow").innerHTML = result.stages.map((stage) => renderStage(stage, positiveTotal)).join("");
+        document.querySelector("#stageRows").innerHTML = result.stages.map((stage) => renderStageRow(stage, positiveTotal)).join("");
+        for (const [key] of fields) updateOutput(key, result.scenario[key]);
+      }
+
+      function renderStage(stage, total) {
+        const percent = total === 0 ? 0 : Math.max(stage.profit, 0) / total;
+        const width = Math.max(7, percent * 100);
+        return `<article class="stage"><div><span>${stage.name}</span><strong>${formatCurrency(stage.profit)}</strong></div><div class="bar" aria-hidden="true"><span style="width: ${width}%"></span></div></article>`;
+      }
+
+      function renderStageRow(stage, total) {
+        const percent = total === 0 ? 0 : Math.max(stage.profit, 0) / total;
+        return `<tr><td>${stage.name}</td><td>${formatCurrency(stage.profit)}</td><td>${formatNumber(percent * 100)}%</td></tr>`;
+      }
+
+      function updateOutput(key, value) {
+        const [, , kind] = fields.find(([name]) => name === key);
+        const output = document.querySelector(`[data-output="${key}"]`);
+        if (!output) return;
+        if (kind === "percent") output.textContent = `${formatNumber(value * 100)}%`;
+        else if (kind === "money") output.textContent = formatCurrency(value);
+        else output.textContent = formatNumber(value);
+      }
+
+      function readInputValue(input) {
+        const key = input.dataset.field;
+        const [, , kind] = fields.find(([name]) => name === key);
+        const value = Number(input.value);
+        return kind === "percent" ? value / 100 : value;
+      }
+
+      function loadScenario() {
+        try {
+          const saved = JSON.parse(localStorage.getItem("money-model-builder") || "{}");
+          return { ...defaultScenario, ...saved };
+        } catch {
+          return { ...defaultScenario };
+        }
+      }
+
+      function saveScenario(scenario) {
+        localStorage.setItem("money-model-builder", JSON.stringify(scenario));
+      }
+
+      renderShell();
+    </script>
+  </body>
+</html>
